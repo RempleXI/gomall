@@ -1,117 +1,83 @@
-/*
- * @Author: liaosijie
- * @Date: 2025-02-20 17:22:10
- * @Last Modified by: liaosijie
- * @Last Modified time: 2025-02-20 18:10:15
- */
-
 package rpc
 
 import (
-	"context"
 	"sync"
 
-	"github.com/PiaoAdmin/gomall/app/frontend/conf"
-	"github.com/PiaoAdmin/gomall/app/frontend/infra/mtl"
-	hertz_gatewayutils "github.com/PiaoAdmin/gomall/app/frontend/utils"
-	"github.com/PiaoAdmin/gomall/common/clientsuite"
+	"github.com/PiaoAdmin/gomall/app/hertz_gateway/conf"
+	"github.com/PiaoAdmin/gomall/app/hertz_gateway/utils"
+	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/auth/authservice"
+
 	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/cart/cartservice"
 	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/checkout/checkoutservice"
 	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/order/orderservice"
-	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/product"
 	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/product/productcatalogservice"
 	"github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/user/userservice"
 	"github.com/cloudwego/kitex/client"
-	"github.com/cloudwego/kitex/pkg/circuitbreak"
-	"github.com/cloudwego/kitex/pkg/fallback"
-	"github.com/cloudwego/kitex/pkg/rpcinfo"
-	prometheus "github.com/kitex-contrib/monitor-prometheus"
+	consul "github.com/kitex-contrib/registry-consul"
 )
 
 var (
-	ProductClient  productcatalogservice.Client
 	UserClient     userservice.Client
-	CartClient     cartservice.Client
+	AuthClient     authservice.Client
+	ProductClient  productcatalogservice.Client
 	CheckoutClient checkoutservice.Client
+	CartClient     cartservice.Client
 	OrderClient    orderservice.Client
 	once           sync.Once
-	err            error
-	registryAddr   string
-	commonSuite    client.Option
 )
 
 func InitClient() {
 	once.Do(func() {
-<<<<<<< HEAD
-		registryAddr = conf.GetConf().Hertz.RegistryAddr
-		commonSuite = client.WithSuite(clientsuite.CommonGrpcClientSuite{
-			RegistryAddr:       registryAddr,
-			CurrentServiceName: hertz_gatewayutils.ServiceName,
-		})
-=======
 		initCartClient()
 		initUserClient()
 		initAuthClient()
 		initCartClient()
->>>>>>> b6e73c27fce12b01552c5334097a847176b8f26a
 		initProductClient()
-		initUserClient()
-		initCartClient()
 		initCheckoutClient()
 		initOrderClient()
 	})
 }
 
-func initProductClient() {
-	var opts []client.Option
-
-	cbs := circuitbreak.NewCBSuite(func(ri rpcinfo.RPCInfo) string {
-		return circuitbreak.RPCInfo2Key(ri)
-	})
-	cbs.UpdateServiceCBConfig("shop-frontend/product/GetProduct", circuitbreak.CBConfig{Enable: true, ErrRate: 0.5, MinSample: 2})
-
-	opts = append(opts, commonSuite, client.WithCircuitBreaker(cbs), client.WithFallback(fallback.NewFallbackPolicy(fallback.UnwrapHelper(func(ctx context.Context, req, resp interface{}, err error) (fbResp interface{}, fbErr error) {
-		methodName := rpcinfo.GetRPCInfo(ctx).To().Method()
-		if err == nil {
-			return resp, err
-		}
-		if methodName != "ListProducts" {
-			return resp, err
-		}
-		return &product.ListProductsResp{
-			Products: []*product.Product{
-				{
-					Price:       6.6,
-					Id:          3,
-					Picture:     "/static/image/t-shirt.jpeg",
-					Name:        "T-Shirt",
-					Description: "example T-Shirt",
-				},
-			},
-		}, nil
-	}))))
-	opts = append(opts, client.WithTracer(prometheus.NewClientTracer("", "", prometheus.WithDisableServer(true), prometheus.WithRegistry(mtl.Registry))))
-
-	ProductClient, err = productcatalogservice.NewClient("product", opts...)
-	hertz_gatewayutils.MustHandleError(err)
-}
-
 func initUserClient() {
-	UserClient, err = userservice.NewClient("user", commonSuite)
-	hertz_gatewayutils.MustHandleError(err)
+	r, err := consul.NewConsulResolver(conf.GetConf().Hertz.RegistryAddr)
+	utils.MustHandleError(err)
+	UserClient, err = userservice.NewClient("user", client.WithResolver(r))
+	utils.MustHandleError(err)
 }
 
-func initCartClient() {
-	CartClient, err = cartservice.NewClient("cart", commonSuite)
-	hertz_gatewayutils.MustHandleError(err)
+func initAuthClient() {
+	r, err := consul.NewConsulResolver(conf.GetConf().Hertz.RegistryAddr)
+	utils.MustHandleError(err)
+	AuthClient, err = authservice.NewClient("auth", client.WithResolver(r))
+	utils.MustHandleError(err)
+}
+
+func initProductClient() {
+	resolver, err := consul.NewConsulResolver("127.0.0.1:8500")
+	utils.MustHandleError(err)
+	ProductClient, err = productcatalogservice.NewClient("product", client.WithResolver(resolver))
+	utils.MustHandleError(err)
 }
 
 func initCheckoutClient() {
-	CheckoutClient, err = checkoutservice.NewClient("checkout", commonSuite)
-	hertz_gatewayutils.MustHandleError(err)
+	resolver, err := consul.NewConsulResolver("127.0.0.1:8500")
+	utils.MustHandleError(err)
+	CheckoutClient, err = checkoutservice.NewClient("checkout", client.WithResolver(resolver))
+	utils.MustHandleError(err)
+}
+
+func initCartClient() {
+	var opts []client.Option
+	r, err := consul.NewConsulResolver(conf.GetConf().Hertz.RegistryAddr)
+	utils.MustHandleError(err)
+	opts = append(opts, client.WithResolver(r))
+	CartClient, err = cartservice.NewClient("cart", opts...)
+	utils.MustHandleError(err)
 }
 
 func initOrderClient() {
-	OrderClient, err = orderservice.NewClient("order", commonSuite)
-	hertz_gatewayutils.MustHandleError(err)
+	r, err := consul.NewConsulResolver(conf.GetConf().Hertz.RegistryAddr)
+	utils.MustHandleError(err)
+	OrderClient, err = orderservice.NewClient("order", client.WithResolver(r))
+	utils.MustHandleError(err)
 }

@@ -2,23 +2,11 @@ package service
 
 import (
 	"context"
-<<<<<<< HEAD
-<<<<<<< HEAD
-	"testing"
-
-	// order "douyin-gomall/gomall/rpc_gen/kitex_gen/order"
-	order "github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/order"
-=======
-	order "github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/order"
-	"testing"
->>>>>>> b6e73c27fce12b01552c5334097a847176b8f26a
-=======
 	"testing"
 
 	"github.com/PiaoAdmin/gomall/app/order/biz/dal"
 	order "github.com/PiaoAdmin/gomall/rpc_gen/kitex_gen/order"
 	"github.com/joho/godotenv"
->>>>>>> d44a6b4cc7a74fbb7186470f8fe343cd7e93b530
 )
 
 func TestMarkOrderPaid_Run(t *testing.T) {

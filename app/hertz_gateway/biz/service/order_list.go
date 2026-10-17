@@ -9,6 +9,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/PiaoAdmin/gomall/app/hertz_gateway/infra/rpc"
@@ -54,7 +55,7 @@ func (h *OrderListService) Run(req *common.Empty) (resp map[string]any, err erro
 			items []types.OrderItem
 		)
 
-		for _, vv := range v.Items {
+		for _, vv := range v.OrderItems {
 			total += vv.Cost
 			i := vv.Item
 			productResp, err := rpc.ProductClient.GetProduct(h.Context, &product.GetProductReq{Id: i.ProductId})
@@ -66,10 +67,10 @@ func (h *OrderListService) Run(req *common.Empty) (resp map[string]any, err erro
 			}
 			p := productResp.Product
 			items = append(items, types.OrderItem{
-				ProductName: p.Name,
-				Picture:     p.Picture,
+				ProductName: p.ProdName,
+				Picture:     p.MainImage,
 				Cost:        vv.Cost,
-				Qty:         i.Quantity,
+				Qty:         uint32(i.Quantity),
 			})
 		}
 		created := time.Unix(int64(v.CreatedAt), 0)
@@ -77,7 +78,7 @@ func (h *OrderListService) Run(req *common.Empty) (resp map[string]any, err erro
 			Cost:        total,
 			Items:       items,
 			CreatedDate: created.Format("2006-01-02 15:04:05"),
-			OrderId:     v.OrderId,
+			OrderId:     strconv.FormatInt(v.OrderId, 10),
 			Consignee:   types.Consignee{Email: v.Email},
 		})
 	}
